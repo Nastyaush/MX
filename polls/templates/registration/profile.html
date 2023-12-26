@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="profile-block">
+  <img class="profile-avatar" src="/media/{{ user.avatar }}" alt="Аватар"/>
+  <h2 class="profile-username">{{ user.username }}</h2>
+</div>
+<h2 class="page-title">Заказанные услуги/товары</h2>
+<div class="cards">
+  {% for service in user.ordered_services.all %}
+  <div class="card" style="width: 18rem;">
+        <img src="/media/{{ service.service_img }}" class="card-img-top" alt="Изображение">
+        <div class="card-body">
+          <a href="{% url 'polls:separate_service' service.id %}">Название: {{ service.service_name }}</a>
+          <p>Описание: {{ service.description_service }} </p>
+        </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

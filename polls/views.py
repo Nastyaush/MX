@@ -1,70 +1,72 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView, LogoutView
-from django.db.models import Count
-from django.db.models.functions import datetime
-from django.shortcuts import render
-from django.http import HttpResponseRedirect
-from .models import Question, Choice, User, Vote
-from django.urls import reverse
+from django.shortcuts import render, get_object_or_404
+from .models import User, Service
 from django.views import generic
 from .forms import RegisterUserForm
 from django.views.generic import UpdateView, CreateView, DeleteView
-from django.contrib.auth import logout
 from django.contrib import messages
-from django.contrib.messages.views import SuccessMessageMixin
-from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
-from .forms import ChangeUserInfoForm
+from django.shortcuts import redirect
+from django.http import HttpResponseBadRequest
 
 
-class IndexView(generic.ListView):
-    template_name = 'index.html'
-    context_object_name = 'latest_question_list'
-
-    def get_queryset(self):
-        return Question.objects.order_by('-pub_date')
+def index(request):
+    service_list = Service.objects.order_by('-service_date')[:5]
+    return render(request, 'index.html', {'service_list': service_list})
 
 
-class DetailView(generic.DetailView):
-    model = Question
-    template_name = 'polls/detail.html'
+def my_services(request):
+    service_list = Service.objects.filter(username=request.user)
+    return render(request, 'polls/service_list.html', {'service_list': service_list})
+
+def services_all(request):
+    service_list = Service.objects.all()
+    return render(request, 'polls/services_all.html', {'service_list': service_list})
 
 
-class ResultsView(generic.DetailView):
-    model = Question
-    template_name = 'polls/results.html'
+class SepServiceView(generic.DetailView):
+    pk_url_kwarg = 'id'
+    model = Service
+    template_name = 'polls/separate_service.html'
+    # success_url = reverse_lazy('profile')
+    fields = ['service_name', 'description_service', 'service_date', 'service_img']
+
+    def form_valid(self, form):
+        form.instance.user = self.request.user  # Привязываем заявку к текущему пользователю
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        messages.success(self, 'Услуга/товар успешно заказана')
+        return reverse_lazy('profile')
 
 
-@login_required
-def vote(request, question_id):
-    question_vote = get_object_or_404(Question, pk=question_id)
-    vote, created = Vote.objects.get_or_create(voter=request.user, question_vote=question_vote)
-    if not created:
-        return render(request, 'polls/detail.html', {
-            'question': question_vote,
-            'error_message': 'Голосовать можно только один раз!!!!!!!!!!!'
-        })
+def order_service(request, service_id):
+    # Получаем объект услуги/товара по его идентификатору
     try:
-        selected_choice = question_vote.choice_set.get(pk=request.POST['choice'])
-    except (KeyError, Choice.DoesNotExist):
-        return render(request, 'polls/detail.html', {
-            'question': question_vote,
-            'error_message': 'Вы не сделали выбор :('
-        })
+        service = Service.objects.get(id=service_id)
+    except Service.DoesNotExist:
+        return HttpResponseBadRequest('Услуга/товар не найден')
 
-    else:
-        selected_choice.votes += 1
-        selected_choice.save()
-        return HttpResponseRedirect(reverse('polls:results', args=(question_vote.id,)))
+    # Проверяем, является ли пользователь авторизованным
+    if not request.user.is_authenticated:
+        return HttpResponseBadRequest('Пользователь не авторизован')
+
+    # Добавляем услугу/товар в список заказанных услуг/товаров текущего пользователя
+    request.user.ordered_services.add(service)
+    messages.success(request, 'Услуга/товар успешно заказана')
+
+    # Перенаправляем на страницу профиля пользователя
+    return redirect('profile')
 
 
 class StudioLoginView(LoginView):
-    template_name = 'registrations/login.html'
+    template_name = 'registration/login.html'
 
 
 class StudioLogoutView(LoginRequiredMixin, LogoutView):
-    template_name = 'registrations/login.html'
+    template_name = 'registration/login.html'
 
 
 class RegisterUserView(CreateView):
@@ -74,38 +76,18 @@ class RegisterUserView(CreateView):
     success_url = reverse_lazy('polls:index')
 
 
-class DeleteUserView(LoginRequiredMixin, DeleteView):
-    model = User
-    template_name = 'registration/delete_user.html'
-    success_url = reverse_lazy('polls:index')
+@login_required
+def profile(request):
+    current_user = request.user
+    service_list = Service.objects.filter(user=current_user)
+    context = {'service_list': service_list}
+    return render(request, 'registration/profile.html', context)
 
-    def dispatch(self, request, *args, **kwargs):
-        self.user_id = request.user.pk
-        return super().dispatch(request, *args, **kwargs)
+def search_service(request):
+    query = request.GET.get('query')
+    results = []
+    if query:
+        results = Service.objects.filter(service_name__icontains=query)
 
-    def post(self, request, *args, **kwargs):
-        logout(request)
-        messages.add_message(request, messages.SUCCESS, 'Пользователь удален')
-        return super().post(request, *args, **kwargs)
-
-    def get_object(self, queryset=None):
-        if not queryset:
-            queryset = self.get_queryset()
-        return get_object_or_404(queryset, pk=self.user_id)
-
-
-class ChangeUserInfoView(SuccessMessageMixin, LoginRequiredMixin, UpdateView):
-    model = User
-    template_name = 'registration/change_user_info.html'
-    form_class = ChangeUserInfoForm
-    success_url = reverse_lazy('polls:index')
-    success_message = 'Личные данные пользователя изменены'
-
-    def dispatch(self, request, *args, **kwargs):
-        self.user_id = request.user.pk
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_object(self, queryset=None):
-        if not queryset:
-            queryset = self.get_queryset()
-        return get_object_or_404(queryset, pk=self.user_id)
+    context = {'results': results}
+    return render(request, context)

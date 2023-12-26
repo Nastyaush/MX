@@ -1,7 +1,8 @@
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import User
+from .models import User, Service, Order
 from .models import user_registrated
+from django.contrib.auth.forms import AuthenticationForm
 
 
 class RegisterUserForm(forms.ModelForm):
@@ -32,7 +33,6 @@ class RegisterUserForm(forms.ModelForm):
         fields = ('username', 'avatar')
 
 
-class ChangeUserInfoForm(forms.ModelForm):
-    class Meta:
-        model = User
-        fields = ('username', 'avatar')
+class LoginUserForm(AuthenticationForm):
+    username = forms.CharField(label='Введите логин', widget=forms.TextInput)
+    password = forms.CharField(label='Введите пароль', widget=forms.PasswordInput)

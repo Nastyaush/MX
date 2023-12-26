@@ -1,22 +1,10 @@
 from django.contrib import admin
-from .models import Question, Choice, User, Vote
+from .models import Service, User
 
 
-class ChoiceInLine(admin.TabularInline):
-    model = Choice
-    extra = 3
+# @admin.register(User)
+# class UserAdmin(admin.ModelAdmin):
+#     list_display = ('username', 'avatar')
 
-
-@admin.register(Question)
-class QuestionAdmin(admin.ModelAdmin):
-    inlines = [ChoiceInLine]
-
-
-@admin.register(User)
-class UserAdmin(admin.ModelAdmin):
-    list_display = ('username', 'avatar')
-
-
-@admin.register(Vote)
-class VoteAdmin(admin.ModelAdmin):
-    model = Vote
+admin.site.register(User)
+admin.site.register(Service)

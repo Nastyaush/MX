@@ -12,37 +12,15 @@ def get_name_file(instance, filename):
     return 'mysite/file'.join([get_random_string(5) + '_' + filename])
 
 
-class Question(models.Model):
-    question_text = models.CharField(max_length=200, verbose_name='Название опроса')
-    pub_date = models.DateTimeField('date published')
-    description_question = models.CharField(max_length=200, verbose_name='Краткое описание')
-    description_choice = models.CharField(max_length=200, verbose_name='Подробное описание')
-    img = models.ImageField(verbose_name='Картинка', upload_to=get_name_file, blank=True, null=True, validators=[FileExtensionValidator(allowed_extensions=['png', 'jpg', 'jpeg'])])
-
-    def was_published_recently(self):
-        return self.pub_date >= timezone.now() - datetime.timedelta(days=1)
+class Service(models.Model):
+    service_name = models.CharField(max_length=200, verbose_name='Название опроса')
+    service_date = models.DateTimeField('date published')
+    description_service = models.CharField(max_length=200, verbose_name='Краткое описание')
+    service_img = models.ImageField(verbose_name='Картинка', upload_to=get_name_file, blank=True, null=True, validators=[FileExtensionValidator(allowed_extensions=['png', 'jpg', 'jpeg'])])
+    user = models.ForeignKey('User', on_delete=models.CASCADE, null=False)
 
     def __str__(self):
-        return self.question_text
-
-    def get_absolute_url(self):
-        return reverse('detail', args=[str(self.id)])
-
-
-class Choice(models.Model):
-    question = models.ForeignKey(Question, on_delete=models.CASCADE)
-    choice_text = models.CharField(max_length=200, validators=[
-        RegexValidator(), ])
-    votes = models.IntegerField(default=0)
-
-    def __str__(self):
-        return self.choice_text
-
-
-class Vote(models.Model):
-    voter = models.ForeignKey('User', verbose_name='Пользователь', related_name='+', on_delete=models.CASCADE)
-    question_vote = models.ForeignKey(Question, verbose_name='Опрос', on_delete=models.CASCADE)
-
+        return self.service_name
 
 class User(AbstractUser):
     username = models.CharField(max_length=200, verbose_name='Логин', unique=True, blank=False, validators=[
@@ -62,3 +40,16 @@ class User(AbstractUser):
 
 
 user_registrated = Signal()
+
+
+class Profile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    ordered_services = models.ManyToManyField(Service)
+
+
+
+
+
+class Order(models.Model):
+    user = models.ForeignKey('User', on_delete=models.CASCADE)
+    product = models.ForeignKey('Service', on_delete=models.CASCADE)
